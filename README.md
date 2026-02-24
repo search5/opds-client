@@ -1,6 +1,7 @@
 # OPDS Client — Calibre Plugin
 
 A Calibre plugin for browsing and downloading books from [OPDS](https://opds.io/) catalog servers directly into your Calibre library.
+This programme was created using Claude.ai.
 
 ## Features
 
