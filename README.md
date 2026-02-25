@@ -1,7 +1,6 @@
 # OPDS Client — Calibre Plugin
 
 A Calibre plugin for browsing and downloading books from [OPDS](https://opds.io/) catalog servers directly into your Calibre library.
-This programme was created using Claude.ai.
 
 ## Features
 
@@ -164,6 +163,17 @@ When new UI strings are added to the source code:
 
 > **Tip:** Tools like [Poedit](https://poedit.net/) provide a graphical editor for `.po` files and can highlight untranslated or fuzzy strings.
 
+## Building on macOS
+
+Requires `make` (included with Xcode Command Line Tools).
+
+```bash
+make build   # creates opds_client.zip
+make clean   # removes opds_client.zip
+```
+
+The zip includes all plugin files and `README.md`.
+
 ## Development
 
 ### Build & install
@@ -206,3 +216,7 @@ calibre-debug -g
 ## License
 
 BSD License — see `__init__.py` for details.
+
+---
+
+> This plugin was written with the assistance of [Claude.ai](https://claude.ai/).

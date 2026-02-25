@@ -1,4 +1,5 @@
 import os
+import time
 import tempfile
 import urllib.request
 import urllib.error
@@ -15,6 +16,11 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
 from calibre.gui2 import error_dialog, info_dialog
 
+try:
+    _USER_ROLE = Qt.UserRole
+except AttributeError:
+    _USER_ROLE = Qt.ItemDataRole.UserRole
+
 from .config import load_servers, save_servers, get_last_server, set_last_server
 from .opds_parser import parse_feed, NavigationFeed, AcquisitionFeed
 from .model import BookTableModel
@@ -26,6 +32,11 @@ load_translations()
 # ---------------------------------------------------------------------------
 # HTTP fetch
 # ---------------------------------------------------------------------------
+
+_FETCH_TIMEOUT = 60
+_FETCH_RETRIES = 3
+_FETCH_RETRY_DELAY = 5
+
 
 def _fetch(url: str, server: dict) -> bytes:
     auth = server.get('auth', 'none')
@@ -43,17 +54,27 @@ def _fetch(url: str, server: dict) -> bytes:
         ('User-Agent', 'CalibreOPDSClient/1.0'),
         ('Accept', 'application/atom+xml, application/xml, text/xml, */*'),
     ]
-    with opener.open(url, timeout=30) as resp:
-        content_type = resp.headers.get('Content-Type', '')
-        data = resp.read()
-    if 'text/html' in content_type:
-        preview = data[:200].decode('utf-8', errors='replace').strip()
-        raise ValueError(
-            _('Server returned HTML instead of XML (Content-Type: %s).\n'
-              'Please check the URL and authentication settings.\n\n'
-              'Response preview:\n%s') % (content_type, preview)
-        )
-    return data
+
+    last_error = None
+    for attempt in range(_FETCH_RETRIES):
+        try:
+            with opener.open(url, timeout=_FETCH_TIMEOUT) as resp:
+                content_type = resp.headers.get('Content-Type', '')
+                data = resp.read()
+            if 'text/html' in content_type:
+                preview = data[:200].decode('utf-8', errors='replace').strip()
+                raise ValueError(
+                    _('Server returned HTML instead of XML (Content-Type: %s).\n'
+                      'Please check the URL and authentication settings.\n\n'
+                      'Response preview:\n%s') % (content_type, preview)
+                )
+            return data
+        except (urllib.error.URLError, TimeoutError) as e:
+            last_error = e
+            if attempt < _FETCH_RETRIES - 1:
+                time.sleep(_FETCH_RETRY_DELAY)
+
+    raise last_error
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +248,8 @@ class OPDSDialog(QDialog):
         self.btn_back = QPushButton(_('◄ Back'))
         self.btn_back.setEnabled(False)
         nav_layout.addWidget(self.btn_back)
+        self.btn_refresh = QPushButton(_('↻ Refresh'))
+        nav_layout.addWidget(self.btn_refresh)
         self.lbl_breadcrumb = QLabel(_('Path: Home'))
         nav_layout.addWidget(self.lbl_breadcrumb, 1)
         main_layout.addLayout(nav_layout)
@@ -240,12 +263,20 @@ class OPDSDialog(QDialog):
         self.book_table = QTableView()
         self.book_model = BookTableModel()
         self.book_table.setModel(self.book_model)
-        self.book_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.book_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.book_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.book_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.book_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.book_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
+        try:
+            self.book_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+            self.book_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+            _stretch = QHeaderView.Stretch
+            _rtc = QHeaderView.ResizeToContents
+        except AttributeError:
+            self.book_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            self.book_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            _stretch = QHeaderView.ResizeMode.Stretch
+            _rtc = QHeaderView.ResizeMode.ResizeToContents
+        self.book_table.horizontalHeader().setSectionResizeMode(0, _stretch)
+        self.book_table.horizontalHeader().setSectionResizeMode(1, _rtc)
+        self.book_table.horizontalHeader().setSectionResizeMode(2, _rtc)
+        self.book_table.horizontalHeader().setSectionResizeMode(3, _rtc)
         self.stack.addWidget(self.book_table)
 
         main_layout.addWidget(self.stack, 1)
@@ -285,6 +316,7 @@ class OPDSDialog(QDialog):
         self.btn_manage.clicked.connect(self._on_manage_servers)
         self.server_combo.currentIndexChanged.connect(self._on_server_changed)
         self.btn_back.clicked.connect(self._on_back)
+        self.btn_refresh.clicked.connect(self._on_refresh)
         self.nav_list.itemDoubleClicked.connect(self._on_nav_item_clicked)
         self.btn_search.clicked.connect(self._on_search)
         self.search_edit.returnPressed.connect(self._on_search)
@@ -321,15 +353,37 @@ class OPDSDialog(QDialog):
         self._load_root()
 
     def _on_manage_servers(self):
+        prev_server = self._current_server()
         dlg = ServerManagerDialog(self)
         dlg.exec_()
         self._servers = load_servers()
         current_name = self.server_combo.currentText()
         self._populate_server_combo()
+
+        idx = 0
         for i, s in enumerate(self._servers):
             if s['name'] == current_name:
-                self.server_combo.setCurrentIndex(i)
+                idx = i
                 break
+        self.server_combo.blockSignals(True)
+        self.server_combo.setCurrentIndex(idx)
+        self.server_combo.blockSignals(False)
+
+        new_server = self._current_server()
+        if new_server and (
+            prev_server is None
+            or prev_server.get('url') != new_server.get('url')
+            or prev_server.get('auth') != new_server.get('auth')
+            or prev_server.get('username') != new_server.get('username')
+            or prev_server.get('password') != new_server.get('password')
+        ):
+            self._load_root()
+
+    def _on_refresh(self):
+        if self._current_url:
+            self._fetch_url(self._current_url)
+        else:
+            self._load_root()
 
     # ------------------------------------------------------------------
     # Feed loading
@@ -396,11 +450,11 @@ class OPDSDialog(QDialog):
 
         for entry in feed.entries:
             item = QListWidgetItem('\U0001f4c1  ' + entry.title)
-            item.setData(Qt.UserRole, entry)
+            item.setData(_USER_ROLE, entry)
             self.nav_list.addItem(item)
 
     def _on_nav_item_clicked(self, item):
-        entry = item.data(Qt.UserRole)
+        entry = item.data(_USER_ROLE)
         if not entry or not entry.url:
             return
         self._url_stack.append(self._current_url)
