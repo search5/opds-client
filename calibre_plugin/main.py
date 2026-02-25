@@ -602,6 +602,8 @@ class OPDSClientAction(InterfaceAction):
     allowed_in_menu = True
 
     def genesis(self):
+        icon = get_icons('image/opds_client_icon.png')
+        self.qaction.setIcon(icon)
         self.qaction.triggered.connect(self.show_dialog)
 
     def show_dialog(self):
