@@ -1,9 +1,11 @@
 from PyQt5.QtWidgets import (
     QDialog, QFormLayout, QLineEdit, QRadioButton,
     QButtonGroup, QWidget, QHBoxLayout, QVBoxLayout,
-    QPushButton, QLabel, QMessageBox,
+    QPushButton, QLabel, QMessageBox, QListWidget,
 )
 from PyQt5.QtCore import Qt
+
+from .config import load_servers, save_servers
 
 load_translations()
 
@@ -111,3 +113,103 @@ class ServerDialog(QDialog):
             result['username'] = self.username_edit.text()
             result['password'] = self.password_edit.text()
         return result
+
+
+# ---------------------------------------------------------------------------
+# Server manager dialog
+# ---------------------------------------------------------------------------
+
+class ServerManagerDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(_('Manage Servers'))
+        self.setMinimumWidth(420)
+        self.setMinimumHeight(300)
+        self.servers = load_servers()
+        self._build_ui()
+        self._refresh_list()
+
+    def _build_ui(self):
+        layout = QHBoxLayout(self)
+
+        self.list_widget = QListWidget()
+        layout.addWidget(self.list_widget, 1)
+
+        btn_layout = QVBoxLayout()
+        self.btn_add    = QPushButton(_('Add'))
+        self.btn_edit   = QPushButton(_('Edit'))
+        self.btn_delete = QPushButton(_('Delete'))
+        self.btn_up     = QPushButton(_('Move Up'))
+        self.btn_down   = QPushButton(_('Move Down'))
+        btn_layout.addWidget(self.btn_add)
+        btn_layout.addWidget(self.btn_edit)
+        btn_layout.addWidget(self.btn_delete)
+        btn_layout.addSpacing(10)
+        btn_layout.addWidget(self.btn_up)
+        btn_layout.addWidget(self.btn_down)
+        btn_layout.addStretch()
+        btn_close = QPushButton(_('Close'))
+        btn_layout.addWidget(btn_close)
+        layout.addLayout(btn_layout)
+
+        self.btn_add.clicked.connect(self._add)
+        self.btn_edit.clicked.connect(self._edit)
+        self.btn_delete.clicked.connect(self._delete)
+        self.btn_up.clicked.connect(self._move_up)
+        self.btn_down.clicked.connect(self._move_down)
+        btn_close.clicked.connect(self.accept)
+
+    def _refresh_list(self):
+        self.list_widget.clear()
+        for s in self.servers:
+            self.list_widget.addItem(s['name'])
+
+    def _add(self):
+        dlg = ServerDialog(self)
+        if dlg.exec_() == QDialog.Accepted:
+            self.servers.append(dlg.get_server())
+            save_servers(self.servers)
+            self._refresh_list()
+
+    def _edit(self):
+        row = self.list_widget.currentRow()
+        if row < 0:
+            return
+        dlg = ServerDialog(self, self.servers[row])
+        if dlg.exec_() == QDialog.Accepted:
+            self.servers[row] = dlg.get_server()
+            save_servers(self.servers)
+            self._refresh_list()
+            self.list_widget.setCurrentRow(row)
+
+    def _delete(self):
+        row = self.list_widget.currentRow()
+        if row < 0:
+            return
+        name = self.servers[row]['name']
+        if QMessageBox.question(
+            self, _('Confirm Delete'),
+            _('Are you sure you want to delete server "%s"?') % name,
+            QMessageBox.Yes | QMessageBox.No
+        ) == QMessageBox.Yes:
+            self.servers.pop(row)
+            save_servers(self.servers)
+            self._refresh_list()
+
+    def _move_up(self):
+        row = self.list_widget.currentRow()
+        if row <= 0:
+            return
+        self.servers[row - 1], self.servers[row] = self.servers[row], self.servers[row - 1]
+        save_servers(self.servers)
+        self._refresh_list()
+        self.list_widget.setCurrentRow(row - 1)
+
+    def _move_down(self):
+        row = self.list_widget.currentRow()
+        if row < 0 or row >= len(self.servers) - 1:
+            return
+        self.servers[row + 1], self.servers[row] = self.servers[row], self.servers[row + 1]
+        save_servers(self.servers)
+        self._refresh_list()
+        self.list_widget.setCurrentRow(row + 1)

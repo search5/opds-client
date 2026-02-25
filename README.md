@@ -96,8 +96,10 @@ opds-client/
     ├── config.py                     # Server list persistence (JSONConfig)
     ├── opds_parser.py                # OPDS XML parser (navigation / acquisition)
     ├── model.py                      # Qt table model for the book list
-    ├── main.py                       # Main dialog + OPDSClientAction
-    ├── server_dialog.py              # Add / edit server dialog
+    ├── network.py                    # HTTP fetch helpers (FetchThread, DownloadThread)
+    ├── server_dialog.py              # ServerDialog + ServerManagerDialog
+    ├── dialog.py                     # OPDSDialog (main browser UI)
+    ├── main.py                       # OPDSClientAction (plugin entry point only)
     ├── image/
     │   └── opds_client_icon.png      # Toolbar icon
     └── translations/
