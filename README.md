@@ -87,17 +87,22 @@ Settings are persisted via Calibre's `JSONConfig` at `~/.config/calibre/plugins/
 ## File Structure
 
 ```
-opds_client/
-├── __init__.py                       # Plugin entry point (InterfaceActionBase)
-├── plugin-import-name-opds_client.txt
-├── config.py                         # Server list persistence (JSONConfig)
-├── opds_parser.py                    # OPDS XML parser (navigation / acquisition)
-├── model.py                          # Qt table model for the book list
-├── main.py                           # Main dialog + OPDSClientAction
-├── server_dialog.py                  # Add / edit server dialog
-└── translations/
-    ├── ko.po                         # Korean translation source
-    └── ko.mo                         # Compiled binary (loaded at runtime)
+opds-client/
+├── Makefile                          # macOS build script (make build / make clean)
+├── README.md
+└── calibre_plugin/
+    ├── __init__.py                   # Plugin entry point (InterfaceActionBase)
+    ├── plugin-import-name-opds_client.txt
+    ├── config.py                     # Server list persistence (JSONConfig)
+    ├── opds_parser.py                # OPDS XML parser (navigation / acquisition)
+    ├── model.py                      # Qt table model for the book list
+    ├── main.py                       # Main dialog + OPDSClientAction
+    ├── server_dialog.py              # Add / edit server dialog
+    ├── image/
+    │   └── opds_client_icon.png      # Toolbar icon
+    └── translations/
+        ├── ko.po                     # Korean translation source
+        └── ko.mo                     # Compiled binary (loaded at runtime)
 ```
 
 ## Internationalization
