@@ -31,13 +31,13 @@ No external pip packages are required — the plugin uses only libraries that sh
 
 ```bash
 git clone <repo-url>
-cd calibre_plugin
-calibre-customize -b opds_client
+cd opds-client
+calibre-customize -b calibre_plugin
 ```
 
 ### From a zip file
 
-1. Build the zip: `calibre-customize -b opds_client` (the zip is created automatically)
+1. Build the zip: `calibre-customize -b calibre_plugin` (the zip is created automatically)
 2. In Calibre: **Preferences → Plugins → Load plugin from file** → select the zip
 
 ## Quick Start
@@ -154,8 +154,8 @@ msgfmt ja.po -o ja.mo
 **4. Reinstall the plugin:**
 
 ```bash
-cd ../..                  # back to calibre_plugin/
-calibre-customize -b opds_client
+cd ../..                  # back to repo root
+calibre-customize -b calibre_plugin
 ```
 
 **5. Change Calibre's interface language** to Japanese (Preferences → Look & Feel → User interface language), restart Calibre, and the new strings will appear.
@@ -166,7 +166,7 @@ When new UI strings are added to the source code:
 
 1. Add the new `msgid`/`msgstr` pairs to each `.po` file.
 2. Recompile: `msgfmt <lang>.po -o <lang>.mo`
-3. Reinstall: `calibre-customize -b opds_client`
+3. Reinstall: `calibre-customize -b calibre_plugin`
 
 > **Tip:** Tools like [Poedit](https://poedit.net/) provide a graphical editor for `.po` files and can highlight untranslated or fuzzy strings.
 
@@ -186,8 +186,7 @@ The zip includes all plugin files and `README.md`.
 ### Build & install
 
 ```bash
-cd calibre_plugin
-calibre-customize -b opds_client
+calibre-customize -b calibre_plugin
 ```
 
 ### Debugging
